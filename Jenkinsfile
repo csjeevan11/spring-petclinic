@@ -52,12 +52,6 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    withCredentials([
-                        string(
-                            credentialsId: 'sonar-token',
-                            variable: 'SONAR_TOKEN'
-                        )
-                    ]) {
                         sh '''
                         echo "Starting Sonar Scan"
                         export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
