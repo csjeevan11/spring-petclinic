@@ -64,15 +64,14 @@ pipeline {
                         sh '''
                         export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
                         export PATH=$JAVA_HOME/bin:$PATH
-                        java -versoin
+                        java -version
                         mvn -version
                         mvn sonar:sonar \
                         -Dsonar.projectKey=petclinic \
-                        -Dsonar.projectName=petclinic \                        
+                        -Dsonar.projectName=petclinic \
                         -Dsonar.host.url=http://$SONAR_HOST \
                         -Dsonar.token=$SONAR_TOKEN \
-                        -Dcheckstyle.skip=true \
-                        -x
+                        -Dcheckstyle.skip=true
                         '''
                     }
                 }
