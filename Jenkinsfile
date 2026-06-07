@@ -63,30 +63,47 @@ pipeline {
         }
 
         stage('Deploy To App Server') {
-
             steps {
-
                 sshagent(['app-server-ssh']) {
 
                     sh '''
                     ssh -o StrictHostKeyChecking=no ubuntu@$APP_SERVER "
-
+        
+                    set -e
+        
+                    echo 'Stopping existing application...'
                     pkill -f spring-petclinic || true
-
-                    rm -f app.jar
-
+        
+                    echo 'Cleaning old files...'
+                    rm -f app.jar maven-metadata.xml
+        
+                    echo 'Fetching Maven metadata...'
+                    wget -q \
+                    $NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
+        
+                    VERSION=\$(grep '<value>' maven-metadata.xml | grep jar | sed -E 's/.*<value>(.*)<\\/value>.*/\\1/')
+        
+                    echo "Latest Snapshot Version: \$VERSION"
+        
                     wget -O app.jar \
-                    $NEXUS_URL/repository/maven-releases/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-4.0.0-SNAPSHOT.jar
-
-                    nohup java -jar app.jar \
-                    > app.log 2>&1 &
-
+                    $NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-\$VERSION.jar
+        
+                    ls -lh app.jar
+        
+                    echo 'Starting application...'
+                    nohup java -jar app.jar > app.log 2>&1 &
+        
+                    sleep 10
+        
+                    ps -ef | grep spring-petclinic | grep -v grep || true
+        
+                    echo 'Deployment completed'
+        
                     "
                     '''
                 }
             }
         }
-    }
 
     post {
 
