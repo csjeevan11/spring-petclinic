@@ -65,7 +65,6 @@ pipeline {
                         	-Dsonar.token=$SONAR_TOKEN \
                         	-Dcheckstyle.skip=true
                         '''
-                    }
                 }
             }
         }
