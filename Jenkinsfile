@@ -1,47 +1,80 @@
-
 pipeline {
     agent any
+    
+    tools {
+        maven 'Maven'
+    }
 
     environment {
-        JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+        SONARQUBE = 'SonarQube'
+        NEXUS_URL = 'http://172.31.85.18:8081'
+        APP_SERVER = '172.31.90.5'
     }
 
     stages {
-
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/spring-projects/spring-petclinic.git'
+                url: 'https://github.com/csjeevan11/spring-petclinic.git'
             }
         }
 
         stage('Build') {
             steps {
-                sh 'mvn clean package'
+                sh 'mvn clean package -DskipTests'
             }
         }
 
-        stage('Deploy JAR to Server') {
+        stage('SonarQube Analysis') {
             steps {
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'tomcat-ssh',
-                    keyFileVariable: 'SSH_KEY',
-                    usernameVariable: 'SSH_USER'
-                )]) {
+                withSonarQubeEnv('SonarQube') {
                     sh '''
-                        echo "Copying JAR..."
-                        scp -i $SSH_KEY -o StrictHostKeyChecking=no \
-                        target/spring-petclinic-*.jar \
-                        $SSH_USER@172.31.44.10:/home/ubuntu/app.jar
-
-                        echo "Restarting Application..."
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no \
-                        $SSH_USER@172.31.44.10 \
-                        "nohup java -jar /home/ubuntu/app.jar --server.port=8081 > /home/ubuntu/app.log 2>&1 &"
+                    mvn sonar:sonar \
+                    -Dsonar.projectKey=petclinic \
+                    -Dsonar.host.url=http://172.31.88.60:9000
                     '''
                 }
             }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Upload To Nexus') {
+            steps {
+                sh 'mvn deploy -DskipTests'
+            }
+        }
+
+        stage('Deploy To App Server') {
+            steps {
+                sshagent(['app-server-ssh']) {
+                    sh '''
+                    ssh -o StrictHostKeyChecking=no ubuntu@$APP_SERVER "
+                    pkill -f petclinic || true
+                    wget -O app.jar \
+                    $NEXUS_URL/repository/maven-releases/org/springframework/samples/spring-petclinic/3.5.0/spring-petclinic-3.5.0.jar
+                    nohup java -jar app.jar \
+                    > app.log 2>&1 &
+                    "
+                    '''
+                }
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo 'Application deployed successfully'
+        }
+        failure {
+            echo 'Pipeline failed'
         }
     }
 }
