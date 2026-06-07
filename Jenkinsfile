@@ -51,27 +51,25 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-
                 withSonarQubeEnv('SonarQube') {
-
                     withCredentials([
                         string(
                             credentialsId: 'sonar-token',
                             variable: 'SONAR_TOKEN'
                         )
                     ]) {
-
                         sh '''
+                        echo "Starting Sonar Scan"
                         export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
                         export PATH=$JAVA_HOME/bin:$PATH
                         java -version
                         mvn -version
                         mvn sonar:sonar \
-                        -Dsonar.projectKey=petclinic \
-                        -Dsonar.projectName=petclinic \
-                        -Dsonar.host.url=http://$SONAR_HOST \
-                        -Dsonar.token=$SONAR_TOKEN \
-                        -Dcheckstyle.skip=true
+                        	-Dsonar.projectKey=petclinic \
+                        	-Dsonar.projectName=petclinic \
+                        	-Dsonar.host.url=http://$SONAR_HOST \
+                        	-Dsonar.token=$SONAR_TOKEN \
+                        	-Dcheckstyle.skip=true
                         '''
                     }
                 }
