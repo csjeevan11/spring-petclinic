@@ -71,13 +71,10 @@ pipeline {
         
                     set -e
         
-                    echo 'Stopping existing application...'
                     pkill -f spring-petclinic || true
         
-                    echo 'Cleaning old files...'
                     rm -f app.jar maven-metadata.xml
         
-                    echo 'Fetching Maven metadata...'
                     wget -q \
                     $NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
         
@@ -102,8 +99,9 @@ pipeline {
                     "
                     '''
                 }
-            }
-        }
+             }
+         }
+    }
 
     post {
 
@@ -116,4 +114,4 @@ pipeline {
         }
     }
 }
-}
+
