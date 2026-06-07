@@ -408,11 +408,11 @@
       </build>
     </profile>
   </profiles>
+  <distributionManagement>
+      <repository>
+          <id>nexus</id>
+          <name>Nexus Releases</name>
+          <url>http://NEXUS-IP:8081/repository/maven-releases/</url>
+      </repository>
+  </distributionManagement>
 </project>
-<distributionManagement>
-    <repository>
-        <id>nexus</id>
-        <name>Nexus Releases</name>
-        <url>http://NEXUS-IP:8081/repository/maven-releases/</url>
-    </repository>
-</distributionManagement>
