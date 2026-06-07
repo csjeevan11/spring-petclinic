@@ -54,6 +54,8 @@ pipeline {
                 withSonarQubeEnv('SonarQube') {
                         sh '''
                         echo "Starting Sonar Scan"
+                        echo "SONAR_HOST_URL=$SONAR_HOST_URL"
+                        echo "SONAR_AUTH_TOKEN=$SONAR_AUTH_TOKEN"
                         export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
                         export PATH=$JAVA_HOME/bin:$PATH
                         java -version
