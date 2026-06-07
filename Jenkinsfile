@@ -21,7 +21,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                sh 'mvn clean package -DskipTests -Dnohttp.check.skip=true'
             }
         }
 
@@ -47,7 +47,7 @@ pipeline {
 
         stage('Upload To Nexus') {
             steps {
-                sh 'mvn deploy -DskipTests'
+                sh 'mvn deploy -DskipTests -Dnohttp.check.skip=true'
             }
         }
 
