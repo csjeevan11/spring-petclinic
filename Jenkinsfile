@@ -8,7 +8,7 @@ pipeline {
 
     environment {
         SONAR_HOST = "http://54.197.200.168:9000"
-        NEXUS_URL  = "http://98.94.20.121:8081"
+        NEXUS_URL  = "http://172.31.85.18:8081"
         APP_SERVER = "172.31.90.5"
     }
 
@@ -72,25 +72,13 @@ pipeline {
                 echo "Stopping old application..."
                 pkill -f spring-petclinic || true
     
-                rm -f app.jar maven-metadata.xml
+                rm -f app.jar
     
-                NEXUS_URL="${NEXUS_URL}"
-
-                echo "Fetching metadata..."
-                wget -q \${NEXUS_URL}/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
-    
-                if [ ! -f maven-metadata.xml ]; then
-                  echo "Metadata download failed"
-                  exit 1
-                fi
-    
-                VERSION=\$(grep -oP '(?<=<extension>jar</extension>).*?<value>\\K[^<]+' maven-metadata.xml)
-    
-                echo "Resolved version: \$VERSION"
+                echo "Downloading latest SNAPSHOT directly from Nexus..."
     
                 wget -O app.jar \
-                \${NEXUS_URL}/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-\${VERSION}.jar
-    
+                http://172.31.85.18:8081/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-4.0.0-SNAPSHOT.jar
+
                 echo "Starting application..."
                 nohup java -jar app.jar > app.log 2>&1 &
     
@@ -98,7 +86,7 @@ pipeline {
     
                 ps -ef | grep java | grep app.jar || true
     
-                echo "Deployment successful"
+                echo "Deployment SUCCESS"
                 EOF
                 """
                 }
