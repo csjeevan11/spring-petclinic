@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        SONAR_HOST = "172.31.88.60:9000"
-        NEXUS_URL  = "http://172.31.85.18:8081"
+        SONAR_HOST = "54.197.200.168:9000"
+        NEXUS_URL  = "http://98.94.20.121:8081"
         APP_SERVER = "172.31.90.5"
     }
 
@@ -65,20 +65,17 @@ pipeline {
         stage('Deploy To App Server') {
             steps {
         	    sshagent(['app-server-ssh']) {
-
             		sh """
-            		ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER} '
+            		ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER} <<EOF
             		set -e
-
             		cd /home/ubuntu
-
             		pkill -f spring-petclinic || true
-
             		rm -f app.jar maven-metadata.xml
-
             		wget -q ${NEXUS_URL}/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
 
-            		VERSION=\$(awk "/<extension>jar<\\/extension>/{getline;print}" maven-metadata.xml | sed -E "s/.*<value>(.*)<\\\\/value>.*/\\\\1/")
+            		VERSION=$(grep -A1 '<extension>jar</extension>' maven-metadata.xml \
+            		| grep '<value>' \
+            		| sed -E 's/.*<value>(.*)<\/value>.*/\1/')
 
             		echo "Latest Snapshot Version: \$VERSION"
 
@@ -91,7 +88,7 @@ pipeline {
             		sleep 10
 
             		ps -ef | grep java | grep app.jar || true
-            		'
+            		EOF
             		"""
         	    }
             }
@@ -108,4 +105,4 @@ pipeline {
             echo 'Pipeline failed'
         }
     }
-}
+}																																																																			
