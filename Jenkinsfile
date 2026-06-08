@@ -66,30 +66,36 @@ pipeline {
                 sh """
                 ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER} << 'EOF'
                 set -e
-    
+
                 cd /home/ubuntu
     
                 echo "Stopping old application..."
                 pkill -f spring-petclinic || true
     
-                rm -f app.jar
+                rm -f app.jar maven-metadata.xml
+    
+                NEXUS_URL="${NEXUS_URL}"
 
-                echo "Fetching latest SNAPSHOT metadata..."
-                wget -q ${NEXUS_URL}/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
+                echo "Fetching metadata..."
+                wget -q \${NEXUS_URL}/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
+    
+                if [ ! -f maven-metadata.xml ]; then
+                  echo "Metadata download failed"
+                  exit 1
+                fi
     
                 VERSION=\$(grep -oP '(?<=<extension>jar</extension>).*?<value>\\K[^<]+' maven-metadata.xml)
     
                 echo "Resolved version: \$VERSION"
     
-                echo "Downloading jar..."
                 wget -O app.jar \
-                ${NEXUS_URL}/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-\${VERSION}.jar
+                \${NEXUS_URL}/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-\${VERSION}.jar
     
                 echo "Starting application..."
                 nohup java -jar app.jar > app.log 2>&1 &
     
                 sleep 10
-
+    
                 ps -ef | grep java | grep app.jar || true
     
                 echo "Deployment successful"
