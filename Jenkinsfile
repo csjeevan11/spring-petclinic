@@ -64,53 +64,37 @@ pipeline {
         steps {
             sshagent(['app-server-ssh']) {
                 sh """
-                ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER} << EOF
-                set -e
-
-                cd /home/ubuntu
-    
-                echo "Stopping old application..."
-                pkill -f spring-petclinic || true
-    
-                rm -f app.jar maven-metadata.xml
-    
-                NEXUS_URL=http://172.31.85.18:8081
-    
-                echo "Downloading metadata..."
-                wget -q \$NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
-    
-                echo "Checking metadata file..."
-                cat maven-metadata.xml
-    
-                if [ ! -s maven-metadata.xml ]; then
-                    echo "❌ metadata missing or empty"
-                    exit 1
-                fi
-
-                echo "Extracting version safely..."
-    
-                VERSION=\$(grep '<value>' maven-metadata.xml | tail -1 | sed 's/.*<value>//;s/<\\/value>//')
-    
-                echo "Resolved VERSION: \$VERSION"
-    
-                if [ -z "\$VERSION" ]; then
-                    echo "❌ VERSION extraction failed"
-                    exit 1
-                fi
-    
-                echo "Downloading JAR..."
-                wget -O app.jar \
-                \$NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-\$VERSION.jar
-
-                echo "Starting application..."
-                nohup java -jar app.jar > app.log 2>&1 &
-    
-                sleep 10
-    
-                ps -ef | grep java | grep app.jar || true
-    
-                echo "DEPLOYMENT SUCCESS"
-                EOF
+                ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER} << 'EOF'
+set -e
+cd /home/ubuntu
+echo "Stopping old application..."
+pkill -f spring-petclinic || true
+rm -f app.jar maven-metadata.xml
+NEXUS_URL=http://172.31.85.18:8081
+echo "Downloading metadata..."
+wget -q \$NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
+echo "Checking metadata file..."
+cat maven-metadata.xml
+if [ ! -s maven-metadata.xml ]; then
+    echo "❌ metadata missing or empty"
+    exit 1
+fi
+echo "Extracting version safely..."
+VERSION=\$(grep '<value>' maven-metadata.xml | tail -1 | sed 's/.*<value>//;s/<\\/value>//')
+echo "Resolved VERSION: \$VERSION"
+if [ -z "\$VERSION" ]; then
+    echo "❌ VERSION extraction failed"
+    exit 1
+fi
+echo "Downloading JAR..."
+wget -O app.jar \
+\$NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-\$VERSION.jar
+echo "Starting application..."
+nohup java -jar app.jar > app.log 2>&1 &
+sleep 10
+ps -ef | grep java | grep app.jar || true
+echo "DEPLOYMENT SUCCESS"
+EOF
                 """
                 }
             }
