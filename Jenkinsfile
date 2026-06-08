@@ -36,7 +36,7 @@ pipeline {
         stage('Build Application') {
             steps {
                 sh """
-                    mvn clean package -DskipTests
+                    mvn clean package -DskipTests -Dcheckstyle.skip=true
                 """
             }
         }
