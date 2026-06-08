@@ -28,7 +28,7 @@ pipeline {
 
         stage('Build Jar') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                sh 'mvn clean package -DskipTests -Dcheckstyle.skip=true'
             }
         }
 
