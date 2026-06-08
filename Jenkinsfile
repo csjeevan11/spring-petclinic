@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'war-builder' }
+    agent { label 'slave-01' }
 
     parameters {
         string(name: 'APP_SERVER', defaultValue: '172.31.90.5', description: 'App Server IP')
@@ -12,6 +12,8 @@ pipeline {
     }
 
     environment {
+        JAVA_HOME = tool 'JDK17'
+        PATH = "${env.JAVA_HOME}/bin:${env.PATH}"
         DOCKER_TAG = "${BUILD_NUMBER}"
     }
 
@@ -20,7 +22,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/csjeevan11/spring-petclinic.git'
+                    url: 'https://github.com/csjeevan11/spring-petclinic.git'
             }
         }
 
@@ -39,7 +41,7 @@ pipeline {
             }
         }
 
-        stage('Login & Push Image') {
+        stage('Push Image') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -55,7 +57,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to App Server') {
+        stage('Deploy') {
             steps {
                 sshagent(['app-server-ssh']) {
                     sh """
@@ -66,7 +68,7 @@ pipeline {
                         docker rm petclinic || true
 
                         docker run -d --name petclinic -p 8080:8080 \
-			csjeevan/petclinic:${DOCKER_TAG}
+                        ${params.DOCKER_IMAGE}:latest
                     '
                     """
                 }
@@ -76,7 +78,7 @@ pipeline {
 
     post {
         success {
-            echo "Docker deployment successful"
+            echo "Deployment successful"
         }
         failure {
             echo "Pipeline failed"
