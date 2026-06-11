@@ -1,16 +1,10 @@
 pipeline {
-    agent { label 'web-builder' }
+    agent any
 
     parameters {
-
-        string(name: 'APP_SERVER', defaultValue: '172.31.90.5', description: 'Target App Server IP')
-
-        string(name: 'APP_PORT', defaultValue: '8080', description: 'Application Port')
-
-        string(name: 'DOCKER_IMAGE', defaultValue: 'csjeevan/petclinic', description: 'Docker Image Name')
-
-        string(name: 'DOCKER_TAG', defaultValue: "${BUILD_NUMBER}", description: 'Image Tag')
-
+        string(name: 'APP_SERVER_IP', defaultValue: '172.31.90.5', description: 'App server IP')
+        string(name: 'NEXUS_IP', defaultValue: '172.31.85.18', description: 'Nexus server IP')
+        string(name: 'SONAR_HOST', defaultValue: 'http://54.197.200.168:9000')
     }
 
     tools {
@@ -19,9 +13,9 @@ pipeline {
     }
 
     environment {
-        IMAGE = "${params.DOCKER_IMAGE}"
-        TAG = "${params.DOCKER_TAG}"
-        FULL_IMAGE = "${params.DOCKER_IMAGE}:${params.DOCKER_TAG}"
+        APP_SERVER = "${params.APP_SERVER_IP}"
+        NEXUS_URL  = "http://${params.NEXUS_IP}:8081"
+        SONAR_HOST = "${params.SONAR_HOST}"
     }
 
     stages {
@@ -33,62 +27,81 @@ pipeline {
             }
         }
 
-        stage('Build Application') {
+        stage('Build') {
             steps {
-                sh """
-                    mvn clean package -DskipTests -Dcheckstyle.skip=true
-                """
+                sh '''
+                mvn clean package -DskipTests -Dcheckstyle.skip=true
+                '''
             }
         }
 
-        stage('Build Docker Image') {
+        stage('SonarQube Analysis') {
             steps {
-                sh """
-                    docker build -t ${FULL_IMAGE} .
-                    docker tag ${FULL_IMAGE} ${IMAGE}:latest
-                """
-            }
-        }
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                    export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                    export PATH=$JAVA_HOME/bin:$PATH
 
-        stage('Docker Login & Push') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh """
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push ${FULL_IMAGE}
-                        docker push ${IMAGE}:latest
-                    """
+                    mvn sonar:sonar \
+                        -Dsonar.projectKey=petclinic \
+                        -Dsonar.projectName=petclinic
+                    '''
                 }
             }
         }
 
-        stage('Deploy to App Server') {
+        stage('Quality Gate') {
             steps {
-                sshagent(['app-server-ssh']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@${params.APP_SERVER} '
-                            set -e
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
-                            echo "Pulling latest image..."
-                            docker pull ${IMAGE}:latest
+        stage('Upload To Nexus') {
+            steps {
+                sh '''
+                mvn deploy -DskipTests -Dcheckstyle.skip=true
+                '''
+            }
+        }
 
-                            echo "Stopping old container..."
-                            docker stop petclinic || true
-                            docker rm petclinic || true
-
-                            echo "Starting new container..."
-                            docker run -d \
-                              --name petclinic \
-                              -p ${params.APP_PORT}:8080 \
-                              ${IMAGE}:latest
-
-                            echo "Deployment completed"
-                        '
-                    """
+    stage('Deploy To App Server') {
+        steps {
+            sshagent(['app-server-ssh']) {
+                sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@${APP_SERVER} << 'EOF'
+set -e
+cd /home/ubuntu
+echo "Stopping old application..."
+pkill -f spring-petclinic || true
+rm -f app.jar maven-metadata.xml
+NEXUS_URL=http://172.31.85.18:8081
+echo "Downloading metadata..."
+wget -q \$NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/maven-metadata.xml
+echo "Checking metadata file..."
+cat maven-metadata.xml
+if [ ! -s maven-metadata.xml ]; then
+    echo "❌ metadata missing or empty"
+    exit 1
+fi
+echo "Extracting version safely..."
+VERSION=\$(grep '<value>' maven-metadata.xml | tail -1 | sed 's/.*<value>//;s/<\\/value>//')
+echo "Resolved VERSION: \$VERSION"
+if [ -z "\$VERSION" ]; then
+    echo "❌ VERSION extraction failed"
+    exit 1
+fi
+echo "Downloading JAR..."
+wget -O app.jar \
+\$NEXUS_URL/repository/maven-snapshots/org/springframework/samples/spring-petclinic/4.0.0-SNAPSHOT/spring-petclinic-\$VERSION.jar
+echo "Starting application..."
+nohup java -jar app.jar > app.log 2>&1 &
+sleep 10
+ps -ef | grep java | grep app.jar || true
+echo "DEPLOYMENT SUCCESS"
+EOF
+                """
                 }
             }
         }
@@ -96,15 +109,10 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline SUCCESS: Application deployed successfully"
+            echo 'Application deployed successfully'
         }
-
         failure {
-            echo "Pipeline FAILED: Check logs"
-        }
-
-        always {
-            cleanWs()
+            echo 'Pipeline failed'
         }
     }
 }
