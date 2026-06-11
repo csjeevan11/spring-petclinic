@@ -4,7 +4,7 @@ pipeline {
     parameters {
         string(name: 'APP_SERVER_IP', defaultValue: '172.31.90.5', description: 'App server IP')
         string(name: 'NEXUS_IP', defaultValue: '172.31.85.18', description: 'Nexus server IP')
-        string(name: 'SONAR_HOST', defaultValue: 'http://54.197.200.168:9000')
+        string(name: 'SONAR_HOST', defaultValue: 'http://18.205.159.66:9000')
     }
 
     tools {
