@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'node-01' }
 
     parameters {
         string(name: 'APP_SERVER_IP', defaultValue: '172.31.90.5', description: 'App server IP')
@@ -30,6 +30,11 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
+                export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                export PATH=$JAVA_HOME/bin:$PATH
+                java -version
+                mvn -version
+                
                 mvn clean package -DskipTests -Dcheckstyle.skip=true
                 '''
             }
